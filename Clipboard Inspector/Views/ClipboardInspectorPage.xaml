@@ -15,8 +15,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*" MinHeight="150"/>
-			<RowDefinition Height="Auto"/>
-			<RowDefinition Height="*" MinHeight="150"/>
+            <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="150"/>
         </Grid.RowDefinitions>
         
         <!-- Header area with controls -->
@@ -79,7 +79,7 @@
                              ResizeBehavior="BasedOnAlignment"
                              ResizeDirection="Auto">
         </toolkit:GridSplitter>
-        
+                
         <!-- Preview content with Pivot -->
         <Border Grid.Row="3" 
                 BorderThickness="1" 
@@ -89,7 +89,7 @@
 
             <!-- Main Preview Container with Pivot -->
             <Pivot x:Name="ContentPivot">
-                <!-- Default Source Pivot -->
+                <!-- Source Pivot -->
                 <PivotItem Header="Source">
                     <editor:CodeEditorControl x:Name="ContentEditor" 
                                              HighlightingLanguage="plaintext"
@@ -97,9 +97,59 @@
                                              FontSize="13"/>
                 </PivotItem>
                 
-                <!-- Preview Pivot (only shown for HTML content) -->
-                <PivotItem x:Name="PreviewPivot" Header="Preview" Visibility="Collapsed">
-                    <WebView2 x:Name="HtmlPreview"/>
+                <!-- Preview Pivot with SwitchPresenter -->
+                <PivotItem Header="Preview">
+                    <toolkit:SwitchPresenter x:Name="PreviewSwitchPresenter" Value="{x:Bind CurrentFormatTypeString, Mode=OneWay}">
+                        <!-- Text Format -->
+                        <toolkit:Case Value="Text">
+                            <editor:CodeEditorControl x:Name="TextPreviewEditor" 
+                                                     HighlightingLanguage="plaintext"
+                                                     FontFamily="Consolas"
+                                                     FontSize="13"/>
+                        </toolkit:Case>
+                        
+                        <!-- HTML Format -->
+                        <toolkit:Case Value="HTML">
+                            <WebView2 x:Name="HtmlPreview"/>
+                        </toolkit:Case>
+                        
+                        <!-- Image Format -->
+                        <toolkit:Case Value="Image">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- Image Info -->
+                                <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                    <TextBlock x:Name="ImageInfoText" 
+                                              Text="Image Information" 
+                                              Style="{ThemeResource CaptionTextBlockStyle}"/>
+                                </StackPanel>
+                                
+                                <!-- Scrollable Image Container -->
+                                <ScrollViewer Grid.Row="1" 
+                                              HorizontalScrollBarVisibility="Auto" 
+                                              VerticalScrollBarVisibility="Auto"
+                                              ZoomMode="Enabled">
+                                    <Image x:Name="ImagePreview" 
+                                           Stretch="None" 
+                                           HorizontalAlignment="Center" 
+                                           VerticalAlignment="Center"/>
+                                </ScrollViewer>
+                            </Grid>
+                        </toolkit:Case>
+                        
+                        <!-- Default case (unsupported formats) -->
+                        <toolkit:Case IsDefault="True">
+                            <TextBlock Text="No preview available for this format" 
+                                       HorizontalAlignment="Center" 
+                                       VerticalAlignment="Center"
+                                       Style="{ThemeResource BodyTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </toolkit:Case>
+                    </toolkit:SwitchPresenter>
                 </PivotItem>
             </Pivot>
         </Border>

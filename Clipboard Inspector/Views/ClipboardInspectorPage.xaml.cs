@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Clipboard_Inspector.Models;
 using Clipboard_Inspector.Services;
 using System;
@@ -9,13 +10,53 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Web;
 using System.IO;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
+using Windows.Storage.Streams;
 
 namespace Clipboard_Inspector.Views
 {
-    public sealed partial class ClipboardInspectorPage : Page
+    public sealed partial class ClipboardInspectorPage : Page, INotifyPropertyChanged
     {
         private ClipboardService _clipboardService;
         private List<ClipboardDataFormat> _formats;
+        
+        // Format type constants for SwitchPresenter
+        public enum FormatType
+        {
+            None,
+            Text,
+            HTML,
+            Image
+        }
+        
+        // Property for binding to SwitchPresenter
+        private FormatType _currentFormatType = FormatType.None;
+        public FormatType CurrentFormatType
+        {
+            get => _currentFormatType;
+            set
+            {
+                if (_currentFormatType != value)
+                {
+                    _currentFormatType = value;
+                    OnPropertyChanged();
+                    OnPropertyChanged(nameof(CurrentFormatTypeString));
+                }
+            }
+        }
+
+        // String version of CurrentFormatType for SwitchPresenter to use
+        public string CurrentFormatTypeString => _currentFormatType.ToString();
+
+        // Image format identifiers
+        private static readonly int[] ImageFormatIds = new[] 
+        { 
+            2,      // CF_BITMAP
+            8,      // CF_DIB (Device Independent Bitmap)
+            17,     // CF_DIBV5 (Enhanced Device Independent Bitmap)
+            49379   // PNG format
+        };
 
         public ClipboardInspectorPage()
         {
@@ -71,7 +112,7 @@ namespace Clipboard_Inspector.Views
                 else
                 {
                     ContentEditor.Editor.SetText("No clipboard data available");
-                    PreviewPivot.Visibility = Visibility.Collapsed;
+                    CurrentFormatType = FormatType.None;
                     ContentPivot.SelectedIndex = 0;
                 }
             }
@@ -79,7 +120,7 @@ namespace Clipboard_Inspector.Views
             {
                 StatusTextBlock.Text = $"Error: {ex.Message}";
                 ContentEditor.Editor.SetText($"Failed to retrieve clipboard data: {ex.Message}");
-                PreviewPivot.Visibility = Visibility.Collapsed;
+                CurrentFormatType = FormatType.None;
                 ContentPivot.SelectedIndex = 0;
             }
         }
@@ -90,53 +131,83 @@ namespace Clipboard_Inspector.Views
             {
                 try
                 {
-                    // Check if the format is HTML
+                    // Determine format type
                     bool isHtmlFormat = IsHtmlFormat(selectedFormat);
+                    bool isImageFormat = IsImageFormat(selectedFormat);
                     
-                    // Get the content preview
-                    string preview;
+                    // Process the data for the Source view
+                    ProcessForSourceView(selectedFormat, isHtmlFormat, isImageFormat);
                     
-                    if (isHtmlFormat)
-                    {
-                        // Process and display HTML content
-                        preview = ProcessHtmlClipboardContent(Encoding.UTF8.GetString(selectedFormat.Data).TrimEnd('\0'));
-                        ContentEditor.HighlightingLanguage = "html";
-                        
-                        // Show the Preview pivot for HTML content
-                        PreviewPivot.Visibility = Visibility.Visible;
-                        
-                        // Load HTML in WebView2
-                        DisplayHtmlPreview(preview);
-                    }
-                    else
-                    {
-                        // Regular format display
-                        preview = _clipboardService.GetPreviewForFormat(selectedFormat);
-                        ContentEditor.HighlightingLanguage = "plaintext";
-                        
-                        // Hide the Preview pivot for non-HTML content
-                        PreviewPivot.Visibility = Visibility.Collapsed;
-                    }
+                    // Prepare preview based on format type
+                    PreparePreview(selectedFormat, isHtmlFormat, isImageFormat);
                     
-                    // Set content in the editor
-                    ContentEditor.Editor.SetText(preview);
-                    
-                    // Ensure the Source pivot is selected
+                    // Switch to source view by default for consistency
                     ContentPivot.SelectedIndex = 0;
                 }
                 catch (Exception ex)
                 {
                     ContentEditor.Editor.SetText($"Error generating preview: {ex.Message}");
                     ContentEditor.HighlightingLanguage = "plaintext";
-                    PreviewPivot.Visibility = Visibility.Collapsed;
+                    CurrentFormatType = FormatType.None;
                     ContentPivot.SelectedIndex = 0;
                 }
             }
             else
             {
                 ContentEditor.Editor.SetText(string.Empty);
-                PreviewPivot.Visibility = Visibility.Collapsed;
+                CurrentFormatType = FormatType.None;
                 ContentPivot.SelectedIndex = 0;
+            }
+        }
+        
+        private void ProcessForSourceView(ClipboardDataFormat format, bool isHtmlFormat, bool isImageFormat)
+        {
+            if (isImageFormat)
+            {
+                // For image formats, show a hex dump in the source view
+                string hexPreview = GenerateHexDump(format.Data, 16);
+                ContentEditor.HighlightingLanguage = "plaintext";
+                ContentEditor.Editor.SetText(hexPreview);
+            }
+            else if (isHtmlFormat)
+            {
+                // For HTML formats, syntax highlight the raw HTML
+                string htmlContent = Encoding.UTF8.GetString(format.Data).TrimEnd('\0');
+                ContentEditor.HighlightingLanguage = "html";
+                ContentEditor.Editor.SetText(htmlContent);
+            }
+            else
+            {
+                // For other formats, use the default preview
+                string preview = _clipboardService.GetPreviewForFormat(format);
+                ContentEditor.HighlightingLanguage = "plaintext";
+                ContentEditor.Editor.SetText(preview);
+            }
+        }
+        
+        private void PreparePreview(ClipboardDataFormat format, bool isHtmlFormat, bool isImageFormat)
+        {
+            if (isImageFormat)
+            {
+                // Image format - prepare image preview
+                DisplayImageContent(format);
+                CurrentFormatType = FormatType.Image;
+            }
+            else if (isHtmlFormat)
+            {
+                // HTML format - prepare HTML preview
+                string htmlContent = Encoding.UTF8.GetString(format.Data).TrimEnd('\0');
+                string processedHtml = ProcessHtmlClipboardContent(htmlContent);
+                DisplayHtmlPreview(processedHtml);
+                CurrentFormatType = FormatType.HTML;
+            }
+            else
+            {
+                // Text and other formats - use the text preview
+                string preview = _clipboardService.GetPreviewForFormat(format);
+                TextPreviewEditor.HighlightingLanguage = "plaintext";
+                TextPreviewEditor.Editor.SetText(preview);
+                CurrentFormatType = FormatType.Text;
             }
         }
 
@@ -144,6 +215,212 @@ namespace Clipboard_Inspector.Views
         {
             return format?.FormatName?.Contains("HTML", StringComparison.OrdinalIgnoreCase) == true ||
                    format?.FormatName?.Contains("Text/HTML", StringComparison.OrdinalIgnoreCase) == true;
+        }
+        
+        private bool IsImageFormat(ClipboardDataFormat format)
+        {
+            // Check by format ID
+            if (ImageFormatIds.Any( i => i == format.FormatId ) )
+                return true;
+                
+            // Check by format name
+            string formatName = format.FormatName?.ToLowerInvariant() ?? string.Empty;
+            return formatName.Contains("bitmap") || 
+                   formatName.Contains("image") || 
+                   formatName.Contains("png") || 
+                   formatName.Contains("jpg") || 
+                   formatName.Contains("jpeg") || 
+                   formatName.Contains("gif");
+        }
+
+        private void DisplayImageContent(ClipboardDataFormat format)
+        {
+            if (format?.Data == null || format.Data.Length == 0)
+                return;
+                
+            try
+            {
+                // Create a BitmapImage from the byte array
+                BitmapImage bitmapImage = null;
+                
+                // Handle different image formats
+                switch (format.FormatId)
+                {
+                    case 49379: // PNG
+                        bitmapImage = CreateBitmapFromBytes(format.Data);
+                        break;
+                        
+                    case 2: // CF_BITMAP
+                    case 8: // CF_DIB
+                    case 17: // CF_DIBV5
+                        // DIB format needs to be converted
+                        bitmapImage = CreateBitmapFromDib(format.Data);
+                        break;
+                        
+                    default:
+                        // Try generic approach
+                        bitmapImage = CreateBitmapFromBytes(format.Data);
+                        break;
+                }
+                
+                if (bitmapImage != null)
+                {
+                    // Set image to the image control
+                    ImagePreview.Source = bitmapImage;
+                    
+                    // Update image info text
+                    bitmapImage.ImageOpened += (s, e) =>
+                    {
+                        ImageInfoText.Text = $"Image Size: {bitmapImage.PixelWidth} x {bitmapImage.PixelHeight} pixels | Format: {format.FormatName} | Data Size: {format.Size} bytes";
+                    };
+                }
+                else
+                {
+                    ImageInfoText.Text = $"Unable to render image from {format.FormatName} format";
+                }
+            }
+            catch (Exception ex)
+            {
+                ImageInfoText.Text = $"Error loading image: {ex.Message}";
+            }
+        }
+        
+        private BitmapImage CreateBitmapFromBytes(byte[] imageData)
+        {
+            // Create a memory stream from the byte data
+            using (InMemoryRandomAccessStream stream = new InMemoryRandomAccessStream())
+            {
+                using (DataWriter writer = new DataWriter(stream))
+                {
+                    writer.WriteBytes(imageData);
+                    writer.StoreAsync().GetResults();
+                    writer.DetachStream();
+                }
+                
+                // Reset position
+                stream.Seek(0);
+                
+                // Create and load the bitmap
+                BitmapImage bitmapImage = new BitmapImage();
+                bitmapImage.SetSource(stream);
+                return bitmapImage;
+            }
+        }
+        
+        private BitmapImage CreateBitmapFromDib(byte[] dibData)
+        {
+            try
+            {
+                // For DIB/DIBV5 format, we need to add a BMP header
+                byte[] bmpData = ConvertDibToBmp(dibData);
+                return CreateBitmapFromBytes(bmpData);
+            }
+            catch
+            {
+                // If conversion fails, try direct loading
+                return CreateBitmapFromBytes(dibData);
+            }
+        }
+        
+        private byte[] ConvertDibToBmp(byte[] dibData)
+        {
+            const int BITMAPFILEHEADER_SIZE = 14;
+            
+            // Create a new array with space for the BMP header
+            byte[] bmpData = new byte[dibData.Length + BITMAPFILEHEADER_SIZE];
+            
+            // BMP header structure
+            // BITMAPFILEHEADER
+            bmpData[0] = (byte)'B';
+            bmpData[1] = (byte)'M';
+            
+            // File size
+            int fileSize = dibData.Length + BITMAPFILEHEADER_SIZE;
+            bmpData[2] = (byte)(fileSize & 0xFF);
+            bmpData[3] = (byte)((fileSize >> 8) & 0xFF);
+            bmpData[4] = (byte)((fileSize >> 16) & 0xFF);
+            bmpData[5] = (byte)((fileSize >> 24) & 0xFF);
+            
+            // Reserved
+            bmpData[6] = 0;
+            bmpData[7] = 0;
+            bmpData[8] = 0;
+            bmpData[9] = 0;
+            
+            // Determine offset to pixel data (header size + DIB header)
+            int pixelOffset = BITMAPFILEHEADER_SIZE;
+            if (dibData.Length >= 4)
+            {
+                // Get the DIB header size from the first 4 bytes
+                int dibHeaderSize = dibData[0] | (dibData[1] << 8) | (dibData[2] << 16) | (dibData[3] << 24);
+                pixelOffset += dibHeaderSize;
+            }
+            else
+            {
+                // Default to BITMAPINFOHEADER (40 bytes)
+                pixelOffset += 40;
+            }
+            
+            // Offset to pixel data
+            bmpData[10] = (byte)(pixelOffset & 0xFF);
+            bmpData[11] = (byte)((pixelOffset >> 8) & 0xFF);
+            bmpData[12] = (byte)((pixelOffset >> 16) & 0xFF);
+            bmpData[13] = (byte)((pixelOffset >> 24) & 0xFF);
+            
+            // Copy DIB data
+            Array.Copy(dibData, 0, bmpData, BITMAPFILEHEADER_SIZE, dibData.Length);
+            
+            return bmpData;
+        }
+        
+        private string GenerateHexDump(byte[] data, int bytesPerLine)
+        {
+            if (data == null || data.Length == 0)
+                return "No data available";
+                
+            StringBuilder sb = new StringBuilder();
+            
+            // Limit to first 4KB to avoid overwhelming the display
+            int maxBytes = Math.Min(data.Length, 4096);
+            
+            for (int i = 0; i < maxBytes; i += bytesPerLine)
+            {
+                // Address column
+                sb.AppendFormat("{0:X8}: ", i);
+                
+                // Hex columns
+                for (int j = 0; j < bytesPerLine; j++)
+                {
+                    if (i + j < maxBytes)
+                        sb.AppendFormat("{0:X2} ", data[i + j]);
+                    else
+                        sb.Append("   ");
+                        
+                    // Add an extra space in the middle for readability
+                    if (j == (bytesPerLine / 2) - 1)
+                        sb.Append(" ");
+                }
+                
+                sb.Append(" | ");
+                
+                // ASCII column
+                for (int j = 0; j < bytesPerLine; j++)
+                {
+                    if (i + j < maxBytes)
+                    {
+                        byte b = data[i + j];
+                        char c = (b >= 32 && b <= 126) ? (char)b : '.';
+                        sb.Append(c);
+                    }
+                }
+                
+                sb.AppendLine();
+            }
+            
+            if (maxBytes < data.Length)
+                sb.AppendLine($"... (truncated, {data.Length - maxBytes} more bytes not shown)");
+                
+            return sb.ToString();
         }
 
         private async void DisplayHtmlPreview(string htmlContent)
@@ -461,5 +738,16 @@ namespace Clipboard_Inspector.Views
             public string Content { get; set; }
             public HtmlTokenType Type { get; set; }
         }
+        
+        #region INotifyPropertyChanged Implementation
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        private void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        #endregion
     }
 }

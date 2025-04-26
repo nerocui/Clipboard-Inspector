@@ -1,7 +1,8 @@
 {
   "profiles": {
     "Clipboard Inspector (Package)": {
-      "commandName": "MsixPackage"
+      "commandName": "MsixPackage",
+      "nativeDebugging": true
     },
     "Clipboard Inspector (Unpackaged)": {
       "commandName": "Project"

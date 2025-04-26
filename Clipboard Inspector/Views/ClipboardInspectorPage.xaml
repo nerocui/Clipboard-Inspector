@@ -9,6 +9,7 @@
     xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:editor="using:WinUIEditor"
+    xmlns:appControls="using:Clipboard_Inspector.Controls"
     mc:Ignorable="d">
 
     <Grid Padding="24,12,24,24">
@@ -139,6 +140,133 @@
                                            VerticalAlignment="Center"/>
                                 </ScrollViewer>
                             </Grid>
+                        </toolkit:Case>
+                        
+                        <!-- Link Format -->
+                        <toolkit:Case Value="Link">
+                            <Grid Margin="16">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Format Info -->
+                                <TextBlock Grid.Row="0" 
+                                           Text="Link Format: " 
+                                           Style="{ThemeResource CaptionTextBlockStyle}">
+                                    <Run x:Name="LinkPreviewFormatText" 
+                                         Text="Unknown Format" 
+                                         FontWeight="SemiBold"/>
+                                </TextBlock>
+
+                                <!-- URL Row -->
+                                <StackPanel Grid.Row="1" 
+                                            Orientation="Horizontal"
+                                            Margin="0,12,0,0"
+                                            Spacing="8"
+                                            VerticalAlignment="Center"
+                                            x:Name="LinkPreviewUrlRow">
+                                    <TextBlock Text="URL:" 
+                                               VerticalAlignment="Center"
+                                               MinWidth="40"/>
+                                    <TextBlock x:Name="LinkPreviewUrl" 
+                                               Text="https://example.com"
+                                               Style="{ThemeResource BodyStrongTextBlockStyle}" 
+                                               TextWrapping="Wrap"
+                                               VerticalAlignment="Center"
+                                               Foreground="{ThemeResource SystemAccentColor}"/>
+                                    <Button x:Name="OpenLinkButton" 
+                                            Content="Open"
+                                            Click="OpenLink_Click"
+                                            Style="{ThemeResource AccentButtonStyle}"
+                                            VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Title Row -->
+                                <StackPanel Grid.Row="2" 
+                                            Orientation="Horizontal"
+                                            Margin="0,8,0,0"
+                                            Spacing="8"
+                                            x:Name="LinkPreviewTitleRow"
+                                            Visibility="Collapsed">
+                                    <TextBlock Text="Title:" 
+                                               VerticalAlignment="Top"
+                                               MinWidth="40"/>
+                                    <TextBlock x:Name="LinkPreviewTitle" 
+                                               Text="Link Title"
+                                               TextWrapping="Wrap" 
+                                               Style="{ThemeResource BodyTextBlockStyle}"/>
+                                </StackPanel>
+                                
+                                <!-- JSON Tree View Container -->
+                                <Border Grid.Row="3" 
+                                       Margin="0,12,0,0" 
+                                       x:Name="JsonTreeViewContainer"
+                                       Visibility="Collapsed"
+                                       BorderThickness="1"
+                                       BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                                       CornerRadius="4"
+                                       Padding="8">
+                                    
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                        </Grid.RowDefinitions>
+                                        
+                                        <TextBlock Text="JSON Content:" 
+                                                   Margin="0,0,0,8"
+                                                   Style="{ThemeResource CaptionTextBlockStyle}"
+                                                   FontWeight="SemiBold"/>
+                                        
+                                        <!-- Use our custom JsonTreeViewer control -->
+                                        <appControls:JsonTreeViewer x:Name="JsonTreeViewControl" 
+                                                            Grid.Row="1"
+                                                            MinHeight="100"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </toolkit:Case>
+                        
+                        <!-- Rich Text Format -->
+                        <toolkit:Case Value="RichText">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+                                
+                                <!-- RTF Info -->
+                                <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                    <TextBlock x:Name="RtfInfoText" 
+                                              Text="Rich Text Format" 
+                                              Style="{ThemeResource CaptionTextBlockStyle}"/>
+                                </StackPanel>
+                                
+                                <!-- Rich Text Box Control -->
+                                <RichEditBox x:Name="RtfPreview" 
+                                           Grid.Row="1"
+                                           Background="Transparent"
+                                           BorderThickness="0"/>
+                            </Grid>
+                        </toolkit:Case>
+                        
+                        <!-- DataObject Format -->
+                        <toolkit:Case Value="DataObject">
+                            <editor:CodeEditorControl x:Name="DataObjectPreviewEditor" 
+                                                    HighlightingLanguage="plaintext"
+                                                    FontFamily="Consolas"
+                                                    FontSize="13"/>
+                        </toolkit:Case>
+                        
+                        <!-- OLE Data Format -->
+                        <toolkit:Case Value="OleData">
+                            <editor:CodeEditorControl x:Name="OlePreviewEditor" 
+                                                    HighlightingLanguage="plaintext"
+                                                    FontFamily="Consolas"
+                                                    FontSize="13"/>
                         </toolkit:Case>
                         
                         <!-- Default case (unsupported formats) -->

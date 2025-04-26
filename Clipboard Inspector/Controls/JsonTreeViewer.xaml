@@ -10,7 +10,11 @@
 
     <Grid>
         <TreeView x:Name="JsonTreeView">
-            <!-- We'll build the tree programmatically in code-behind -->
+            <TreeView.ItemTemplate>
+                <DataTemplate>
+                    <ContentControl Content="{Binding Content}" />
+                </DataTemplate>
+            </TreeView.ItemTemplate>
         </TreeView>
     </Grid>
 </UserControl>
